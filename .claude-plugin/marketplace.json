@@ -1,0 +1,15 @@
+{
+  "name": "ctx-watch",
+  "owner": {
+    "name": "juew",
+    "url": "https://github.com/juew"
+  },
+  "plugins": [
+    {
+      "name": "ctx-watch",
+      "source": "./",
+      "description": "Context watermark monitoring for Claude Code: auto-detects when a session grows too large to stay fast or affordable.",
+      "version": "0.1.0"
+    }
+  ]
+}
