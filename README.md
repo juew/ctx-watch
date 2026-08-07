@@ -68,7 +68,7 @@ growth usually beats rotating.
 
 ```
 /plugin marketplace add juew/ctx-watch
-/plugin install ctx-watch
+/plugin install ctx-watch@ctx-watch-marketplace
 ```
 
 Requires Node.js. No other dependencies.
@@ -178,7 +178,7 @@ MIT
 
 ```
 /plugin marketplace add juew/ctx-watch
-/plugin install ctx-watch
+/plugin install ctx-watch@ctx-watch-marketplace
 ```
 
 需要 Node.js,无其他依赖。
