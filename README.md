@@ -1,7 +1,17 @@
 # ctx-watch
 
-A Claude Code plugin that watches how much context your sessions carry, and tells the
-agent to throttle or hand off before the burn gets out of hand.
+Watches how much context your sessions carry, and tells the agent to throttle or hand
+off before the burn gets out of hand.
+
+**Two editions — install one:**
+
+| Your agent | Install | Notes |
+|---|---|---|
+| **Claude Code** | this directory | Rules auto-injected at session start |
+| **Codex** | [`codex/`](codex/) | Uses Codex's own window and plan-usage numbers |
+
+They share no files. The rest of this page describes the Claude Code edition; the
+Codex edition has [its own README](codex/README.md).
 
 *[中文说明在下方](#中文)*
 

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/ctx-probe.mjs\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
