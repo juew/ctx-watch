@@ -130,7 +130,16 @@ MIT
 
 # ctx-watch(中文)
 
-监控 Claude Code 会话的上下文水位,在 token 流失失控之前让 agent 自己节流或收口。
+监控会话的上下文水位,在 token 流失失控之前让 agent 自己节流或收口。
+
+**两个版本,装一个就行:**
+
+| 你用的 agent | 装哪个 | 说明 |
+|---|---|---|
+| **Claude Code** | 本目录 | 规则在会话启动时自动注入 |
+| **Codex** | [`codex/`](codex/) | 直接用 Codex 自报的窗口和套餐使用率 |
+
+两版不共用文件。下文讲的是 Claude Code 版,Codex 版有[自己的 README](codex/README.md)。
 
 ## 要解决什么
 
