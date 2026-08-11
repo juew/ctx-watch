@@ -9,7 +9,7 @@
       "name": "ctx-watch",
       "source": "./",
       "description": "Context watermark monitoring for Claude Code: auto-detects when a session grows too large to stay fast or affordable.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ]
 }

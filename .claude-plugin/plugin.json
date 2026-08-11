@@ -1,7 +1,7 @@
 {
   "name": "ctx-watch",
   "description": "Context watermark monitoring for Claude Code. Auto-detects when a session grows too large to stay fast or affordable, and tells the agent to throttle or hand off.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "juew"
   },
