@@ -110,6 +110,12 @@ The bundled prices are Anthropic list prices as of 2026-08. **Verify them.**
 stated plainly because a plugin about saving tokens should be honest about the tokens
 it spends. The rules do nothing if they are not resident when the decision gets made.
 
+**`claude plugin details` under-reports this.** It shows `Always-on: ~128 tok`, which
+counts the skill description only — static analysis cannot see what a `SessionStart`
+hook injects at runtime, and it labels hooks "harness-only — no model context cost".
+True resident cost is **~1.2k tokens**: ~128 for the listing plus ~1.1k for the
+injected rules. Verified by running the hook and measuring its output.
+
 ## Two things this gets right that are easy to get wrong
 
 **Deduplicate by `requestId`.** The same assistant message is flushed to the
@@ -212,6 +218,8 @@ node <plugin>/scripts/ctx-audit.mjs --cost   # 附带成本估算
 内置价格是 2026-08 的 Anthropic 标价,**请自行核实**。
 
 **不想让规则被注入?** 删掉 `hooks/hooks.json` 里的 `SessionStart` 段。它每个会话固定占 3.8KB(约 1k tokens,实测非估算)——这里明说,因为一个讲省 token 的插件应当对自己花掉的 token 诚实。但规则不常驻就等于没有:决策发生的那一刻它得在场。
+
+**`claude plugin details` 报少了。** 它显示 `Always-on: ~128 tok`,那只算了 skill 的 description——静态分析看不见 `SessionStart` hook 在运行时注入什么,而且它把 hooks 标为「harness-only — no model context cost」。真实常驻成本是 **约 1.2k tokens**:列表项约 128,注入的规则约 1.1k。这个数字是把 hook 跑一遍量出来的。
 
 ## 两个容易做错的细节
 
