@@ -24,23 +24,42 @@ session store: **0.46s** for a full `--all` scan.
 
 ## Install
 
-Copy this directory into a Codex plugin location, e.g.:
+Codex has a plugin CLI. Use it — copying files into `~/.codex/plugins/` by hand does
+**not** register anything and the hooks silently never fire (verified the hard way).
 
 ```bash
-mkdir -p ~/.codex/plugins/ctx-watch
-cp -R codex/ ~/.codex/plugins/ctx-watch/
+codex plugin marketplace add juew/ctx-watch --sparse codex
+codex plugin add ctx-watch@ctx-watch
 ```
 
-Then enable it in `~/.codex/config.toml` the way you enable your other plugins:
+Or from a local checkout:
 
-```toml
-[plugins."ctx-watch@personal"]
+```bash
+codex plugin marketplace add /path/to/ctx-watch/codex
+codex plugin add ctx-watch@ctx-watch
 ```
 
-**Skill only, no automation:** copy `codex/skills/ctx-watch/` to
-`~/.codex/skills/ctx-watch/` and run `ctx-audit` by hand. Nothing else is required.
+**Skill only, no automation:** copy `plugins/ctx-watch/skills/ctx-watch/` to
+`~/.codex/skills/ctx-watch/` and run `ctx-audit` by hand.
 
 Requires Node.js.
+
+### Marketplace layout
+
+Codex expects a specific shape, which is why this lives in its own subtree:
+
+```
+codex/
+├── .agents/plugins/marketplace.json     <- the marketplace manifest
+└── plugins/ctx-watch/
+    ├── .codex-plugin/plugin.json        <- the plugin manifest
+    ├── hooks/hooks.json
+    ├── scripts/
+    └── skills/ctx-watch/SKILL.md
+```
+
+Without `.agents/plugins/marketplace.json` the CLI refuses the source with
+"marketplace root does not contain a supported manifest".
 
 ## The rules
 
@@ -51,26 +70,23 @@ The Claude Code edition injects them via a `SessionStart` hook. **This edition d
 not** — no `SessionStart` hook is used, because there is no verified example of one
 in Codex. `AGENTS.md` is the documented, reliable path.
 
-## Known limitation, stated plainly
+## Verified behaviour
 
-`hookSpecificOutput.additionalContext` is the Claude Code contract. Codex accepts the
-same envelope and the bundled `subagent-orchestration` plugin uses
-`hookSpecificOutput` for permission decisions — but **whether Codex feeds
-`additionalContext` back into the model is not verified here.** Verifying it needs a
-live Codex session, which cannot be done from the other harness.
+`hookSpecificOutput.additionalContext` **is** fed back into the model on Codex. Tested
+by installing this plugin, replacing the probe output with a hook that injected a
+unique token, and confirming the agent reproduced that token in its reply. The
+`PostToolUse` event fires with `matcher: "*"`.
 
-So `ctx-probe` emits **both** `systemMessage` and `additionalContext`. If injection
-works, the agent acts on it. If it does not, the warning is still visible to you as a
-system message. Either way you are told; the difference is whether the agent reacts
-on its own.
+Note that asking the agent "what were you just told?" is not a valid test — it treats
+injected context as a system instruction and declines to disclose it. Observe its
+behaviour instead.
 
-If you confirm the behaviour either way, please open an issue — that observation is
-the one thing this edition cannot self-test.
+`ctx-probe` still emits `systemMessage` alongside `additionalContext`, so the warning
+is visible to you as well as actionable by the agent.
 
 Hook input keys are read with fallbacks (`rollout_path`, `transcript_path`,
 `session_file`, `thread_path`, then session ids) and, failing all of them, the probe
-finds the newest rollout whose `cwd` matches. So it works even if the payload shape
-differs from what was assumed.
+finds the newest rollout whose `cwd` matches.
 
 ## Configuration
 
@@ -108,22 +124,39 @@ provider's own accounting beats any list-price guess.
 
 ## 安装
 
-把这个目录放进 Codex 的 plugin 位置:
+Codex 自带 plugin CLI,**必须用它**——手动把文件复制进 `~/.codex/plugins/` 不会注册任何东西,hook 会静默地永不触发(这是实测踩出来的)。
 
 ```bash
-mkdir -p ~/.codex/plugins/ctx-watch
-cp -R codex/ ~/.codex/plugins/ctx-watch/
+codex plugin marketplace add juew/ctx-watch --sparse codex
+codex plugin add ctx-watch@ctx-watch
 ```
 
-再按你启用其他 plugin 的方式,在 `~/.codex/config.toml` 里加上:
+或从本地检出安装:
 
-```toml
-[plugins."ctx-watch@personal"]
+```bash
+codex plugin marketplace add /path/to/ctx-watch/codex
+codex plugin add ctx-watch@ctx-watch
 ```
 
-**只要 skill、不要自动触发:** 把 `codex/skills/ctx-watch/` 复制到 `~/.codex/skills/ctx-watch/`,手动跑 `ctx-audit` 就行,不需要别的。
+**只要 skill、不要自动触发:** 把 `plugins/ctx-watch/skills/ctx-watch/` 复制到 `~/.codex/skills/ctx-watch/`,手动跑 `ctx-audit`。
 
 需要 Node.js。
+
+### Marketplace 目录结构
+
+Codex 要求特定结构,这也是它单独占一棵子树的原因:
+
+```
+codex/
+├── .agents/plugins/marketplace.json     <- marketplace 清单
+└── plugins/ctx-watch/
+    ├── .codex-plugin/plugin.json        <- plugin 清单
+    ├── hooks/hooks.json
+    ├── scripts/
+    └── skills/ctx-watch/SKILL.md
+```
+
+缺了 `.agents/plugins/marketplace.json`,CLI 会直接拒绝:「marketplace root does not contain a supported manifest」。
 
 ## 规则怎么装
 
@@ -131,15 +164,15 @@ Codex 读 `AGENTS.md`。把 [`../RULES.md`](../RULES.md) 粘进你的 `~/.codex/
 
 Claude Code 版是用 `SessionStart` hook 注入的。**这一版没有这么做**——因为在 Codex 里找不到 `SessionStart` hook 的已验证先例,`AGENTS.md` 才是有文档、可靠的路径。
 
-## 一个已知限制,明说
+## 已验证的行为
 
-`hookSpecificOutput.additionalContext` 是 Claude Code 的协议。Codex 接受同样的信封结构,自带的 `subagent-orchestration` 插件也用 `hookSpecificOutput` 做权限决策——**但 Codex 是否会把 `additionalContext` 真正喂回模型,这里没有验证过。** 验证它需要在 Codex 里跑一个实时会话,在另一个 harness 里做不到。
+`hookSpecificOutput.additionalContext` 在 Codex 上**确实会**被喂回模型。验证方式:装上这个 plugin,把探针输出换成注入一个唯一标记的 hook,确认 agent 在回复里复现了那个标记。`PostToolUse` 事件配 `matcher: "*"` 可以正常触发。
 
-所以 `ctx-probe` **同时**输出 `systemMessage` 和 `additionalContext`。注入生效,agent 就会自己响应;不生效,警告至少还能以系统消息的形式让你看见。两种情况你都会收到通知,区别只是 agent 会不会自动反应。
+注意:问 agent「你刚才收到了什么」**不是**有效的测试——它会把注入内容当作系统指令而拒绝披露。要看它的行为,不要问它。
 
-如果你验证出了结果(不论哪种),欢迎提 issue——这是这一版唯一没法自测的地方。
+`ctx-probe` 仍会同时输出 `systemMessage`,这样警告对你可见、对 agent 可执行。
 
-Hook 输入的键名做了多重兜底(`rollout_path`、`transcript_path`、`session_file`、`thread_path`,再退到各种 session id),全都拿不到时,探针会按 `cwd` 匹配找最新的 rollout。所以即使 payload 结构和假设的不一样,它也能工作。
+Hook 输入的键名做了多重兜底(`rollout_path`、`transcript_path`、`session_file`、`thread_path`,再退到各种 session id),全都拿不到时按 `cwd` 匹配找最新的 rollout。
 
 ## 配置
 

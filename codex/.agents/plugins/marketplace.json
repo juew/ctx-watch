@@ -1,0 +1,19 @@
+{
+  "name": "ctx-watch",
+  "interface": {
+    "displayName": "ctx-watch"
+  },
+  "plugins": [
+    {
+      "name": "ctx-watch",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ctx-watch"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

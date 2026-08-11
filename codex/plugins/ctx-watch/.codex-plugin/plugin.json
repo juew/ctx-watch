@@ -1,0 +1,13 @@
+{
+  "name": "ctx-watch",
+  "version": "0.2.0",
+  "description": "Context watermark monitoring for Codex. Reads the token_count events in your rollouts to tell you — and the agent — when a session has grown too large to stay fast, and whether to throttle or hand off.",
+  "author": {
+    "name": "juew",
+    "url": "https://github.com/juew"
+  },
+  "homepage": "https://github.com/juew/ctx-watch",
+  "repository": "https://github.com/juew/ctx-watch",
+  "license": "MIT",
+  "keywords": ["context", "token-usage", "performance", "handoff"]
+}
