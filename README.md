@@ -61,13 +61,16 @@ Thresholds are **not hardcoded**. The context window is detected, then throttle 
 
 Crossing the throttle line and continuing is normal. It is not a stop signal — it is a request to slow the growth. That distinction matters more than it sounds:
 
-```
-per-quarter growth on one real session:
-  2,037 → 2,119 → 1,352 → 816   tokens per call
-                  ^^^^^^^^^^^ throttle line crossed here
-```
+Capacity is set by the growth rate, not by the threshold. Halve the rate and the
+session runs roughly twice as long before it has to hand off — which is why the
+first tier asks for less output rather than for a handoff.
 
-At the early rate that session reaches the handoff line in ~370 calls. At the throttled rate, ~900. **Throttling more than doubled its capacity — raising the threshold could not have done that.**
+**How much does throttling actually save? Unknown — and this project will not
+invent a number for it.** Measuring it needs an A/B on comparable tasks; a single
+session proves nothing, least of all when its author is watching it. What is
+measured here is the *watermark and the rate*, both read straight from the
+transcript. The claim is that those two numbers are worth seeing, not that this
+tool has a proven percentage attached to it.
 
 ## Install
 
@@ -119,7 +122,7 @@ Reading the report:
 ## Things this gets right that are easy to get wrong
 
 - **Deduplicating by `requestId`.** The same assistant message is flushed to the transcript 1–2 extra times with identical usage. Not deduplicating inflates every total by nearly 2x.
-- **Measuring rate over the last quarter, not the lifetime.** On real data those differ by 2.6x, and only the recent slope predicts anything.
+- **Measuring rate over the last quarter, not the lifetime.** Sessions that shift phase — heavy exploration, then execution — have a recent slope that the lifetime average hides, and only the recent one predicts remaining runway. The report prints both so a divergence is visible rather than assumed.
 - **Staying quiet.** The probe announces each level once. A notice on every tool call would itself live in the context forever — precisely the failure this exists to prevent.
 - **Reading only the tail.** A hook on every tool call must not become the thing that slows every step down.
 - **Treating compaction as normal.** It is routine operation, not failure. What matters is that the handoff notes are current.

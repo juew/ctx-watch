@@ -4,7 +4,7 @@
 
 Reports **growth rate** and **remaining runway**, not just the current watermark.
 
-- `ctx-audit` gains `rate` and `left` columns, replacing `next100`. Rate is measured over the last quarter of the session — on real data the recent slope and the lifetime average differ by 2.6x, and only the recent one predicts anything.
+- `ctx-audit` gains `rate` and `left` columns, replacing `next100`. Rate is measured over the last quarter of the session rather than as a lifetime average, since only the recent slope predicts remaining runway.
 - `ctx-probe` reports runway in its throttle notice, reading the rate `ctx-audit` caches.
 - Cost estimation moved behind `--cost` and is now priced per model, with unpriced models excluded from the dollar sum rather than guessed at.
 - Codex edition: marketplace manifest moved to the repository root. `--sparse` does not move the marketplace root, so the documented install command could not work before this.

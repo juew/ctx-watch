@@ -15,8 +15,8 @@ growth rate and how many calls remain before the handoff line.
 
 **The throttle line is not a stop line.** Crossing it and continuing to work is
 normal and expected — it only means slow the growth. Capacity is set by the rate,
-not the threshold: measured on a real session, throttling cut growth from ~2,100 to
-~816 tokens per call, which more than doubled how long that session could run.
+not the threshold: halving the tokens added per call roughly doubles how long the
+session runs before it has to hand off.
 
 ## Four rules
 
