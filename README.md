@@ -147,6 +147,8 @@ MIT
 
 两版不共用文件。下文讲的是 Claude Code 版,Codex 版有[自己的 README](codex/README.md)。
 
+skill 正文默认是英文。想用中文的,把 `skills/ctx-watch/SKILL.zh-CN.md` 覆盖成 `SKILL.md` 即可(两份内容等价)。
+
 ## 要解决什么
 
 一次工具调用 = 一次 API 请求 = **一次全上下文重读**。消耗量 = 请求次数 × 当时上下文大小,**与模型输出多少无关**。
