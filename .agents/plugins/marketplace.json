@@ -8,7 +8,7 @@
       "name": "ctx-watch",
       "source": {
         "source": "local",
-        "path": "./plugins/ctx-watch"
+        "path": "./codex/plugins/ctx-watch"
       },
       "policy": {
         "installation": "AVAILABLE"
