@@ -28,14 +28,14 @@ Codex has a plugin CLI. Use it — copying files into `~/.codex/plugins/` by han
 **not** register anything and the hooks silently never fire (verified the hard way).
 
 ```bash
-codex plugin marketplace add juew/ctx-watch --sparse codex
+codex plugin marketplace add juew/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
 Or from a local checkout:
 
 ```bash
-codex plugin marketplace add /path/to/ctx-watch/codex
+codex plugin marketplace add /path/to/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
@@ -49,9 +49,10 @@ Requires Node.js.
 Codex expects a specific shape, which is why this lives in its own subtree:
 
 ```
-codex/
-├── .agents/plugins/marketplace.json     <- the marketplace manifest
-└── plugins/ctx-watch/
+<repo root>/
+├── .agents/plugins/marketplace.json     <- the marketplace manifest (must be at
+│                                            the root; --sparse does not move it)
+└── codex/plugins/ctx-watch/
     ├── .codex-plugin/plugin.json        <- the plugin manifest
     ├── hooks/hooks.json
     ├── scripts/
@@ -127,14 +128,14 @@ provider's own accounting beats any list-price guess.
 Codex 自带 plugin CLI,**必须用它**——手动把文件复制进 `~/.codex/plugins/` 不会注册任何东西,hook 会静默地永不触发(这是实测踩出来的)。
 
 ```bash
-codex plugin marketplace add juew/ctx-watch --sparse codex
+codex plugin marketplace add juew/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
 或从本地检出安装:
 
 ```bash
-codex plugin marketplace add /path/to/ctx-watch/codex
+codex plugin marketplace add /path/to/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
@@ -147,9 +148,10 @@ codex plugin add ctx-watch@ctx-watch
 Codex 要求特定结构,这也是它单独占一棵子树的原因:
 
 ```
-codex/
-├── .agents/plugins/marketplace.json     <- marketplace 清单
-└── plugins/ctx-watch/
+<仓库根>/
+├── .agents/plugins/marketplace.json     <- marketplace 清单（必须在仓库根；
+│                                            --sparse 不会改变 marketplace root）
+└── codex/plugins/ctx-watch/
     ├── .codex-plugin/plugin.json        <- plugin 清单
     ├── hooks/hooks.json
     ├── scripts/
