@@ -237,14 +237,40 @@ const now = Date.now();
 const isActive = (r) => now - r.mtime < ACTIVE_WINDOW_MS;
 const level = (r) => (r.last >= rotate ? 'rotate' : r.last >= throttle ? 'throttle' : 'ok');
 
+/**
+ * Tokens added per call, measured over the LAST QUARTER of the session only.
+ *
+ * Not the whole-session average: growth rate is not constant. Measured on a real
+ * session, the four quarters ran 2037 / 2119 / 1352 / 816 tokens per call — early
+ * exploration reads far more than later execution, and throttling cuts it further.
+ * A whole-session average would understate what the session is doing right now,
+ * which is the only thing "how much longer can this run" depends on.
+ */
+function recentRate(ctxs) {
+  if (ctxs.length < 8) return 0; // too few points for the slope to mean anything
+  const seg = ctxs.slice(Math.floor(ctxs.length * 0.75));
+  const span = seg.length - 1;
+  return span > 0 ? (seg[seg.length - 1] - seg[0]) / span : 0;
+}
+
+/** Calls left before the handoff line at the current rate. */
+function callsLeft(r) {
+  const rate = recentRate(r.ctxs);
+  if (rate <= 0) return null; // flat or shrinking (compacted) — no meaningful estimate
+  const room = rotate - r.last;
+  return room <= 0 ? 0 : Math.round(room / rate);
+}
+
 console.log(`\nContext watermark  (* = active within 2h;  window ${n(window)} -> throttle ${n(throttle)}, rotate ${n(rotate)})`);
-console.log(`next100 = tokens the NEXT 100 tool calls will burn at the current watermark\n`);
-console.log(`  type       name                        calls   current      peak    burned  next100  state${scanAll ? '   project' : ''}`);
+console.log(`rate = tokens added per call recently;  left = calls remaining before the handoff line\n`);
+console.log(`  type       name                        calls   current      peak    burned   rate   left  state${scanAll ? '   project' : ''}`);
 for (const r of rows) {
   const lv = level(r);
   const state = lv === 'rotate' ? 'ROTATE' : lv === 'throttle' ? 'THROTTLE' : 'ok';
+  const rate = recentRate(r.ctxs);
+  const left = callsLeft(r);
   console.log(
-    `${isActive(r) ? '*' : ' '} ${r.kind.padEnd(9)} ${r.name.padEnd(26)} ${String(r.calls).padStart(5)} ${n(r.last).padStart(9)} ${n(r.peak).padStart(9)} ${M(r.burn).padStart(9)} ${M(r.last * 100).padStart(8)}  ${lv !== 'ok' && !isActive(r) ? 'past' : state}${scanAll ? '   ' + r.proj.slice(-20) : ''}`
+    `${isActive(r) ? '*' : ' '} ${r.kind.padEnd(9)} ${r.name.padEnd(26)} ${String(r.calls).padStart(5)} ${n(r.last).padStart(9)} ${n(r.peak).padStart(9)} ${M(r.burn).padStart(9)} ${(rate > 0 ? n(rate) : '-').padStart(6)} ${(left === null ? '-' : String(left)).padStart(6)}  ${lv !== 'ok' && !isActive(r) ? 'past' : state}${scanAll ? '   ' + r.proj.slice(-20) : ''}`
   );
 }
 
@@ -258,6 +284,42 @@ console.log(`\n${calls} requests burned ${M(burn)} input tokens (avg ${n(burn / 
 if (overflow > 0) {
   console.log(`${M(overflow)} of that (${((overflow / burn) * 100).toFixed(0)}%) was context above the throttle line —`);
   console.log(`re-reads that earlier handoffs would have avoided.`);
+}
+
+/**
+ * Cache per-session growth rates for ctx-probe.
+ *
+ * The probe reads one record and cannot compute a slope without giving up the tail
+ * read that keeps it at ~45ms. Rates are keyed by the same 8-char session prefix the
+ * probe derives from its transcript filename. .ctx-window is still written by
+ * calibrate() so older probes keep working.
+ */
+try {
+  const rates = {};
+  for (const r of rows) {
+    const rate = recentRate(r.ctxs);
+    if (rate > 0) rates[r.name] = Math.round(rate);
+  }
+  writeFileSync(join(homedir(), '.claude/.ctx-state'), JSON.stringify({ window, rates }));
+} catch {} // caching is best-effort; the probe degrades to its old wording
+
+/**
+ * Show whether throttling is actually working on the busiest live session.
+ * Capacity is set by the growth rate, not by the threshold: halving the rate
+ * doubles how long the session can run before it has to hand off.
+ */
+const busiest = rows.filter((r) => isActive(r) && r.ctxs.length >= 16).sort((a, b) => b.calls - a.calls)[0];
+if (busiest) {
+  // burn/calls is the average CONTEXT SIZE, not the growth rate — different units.
+  // The lifetime rate is the slope across the whole session.
+  const c = busiest.ctxs;
+  const whole = (c[c.length - 1] - c[0]) / (c.length - 1);
+  const recent = recentRate(busiest.ctxs);
+  if (recent > 0) {
+    const trend = recent < whole * 0.8 ? 'slowing — throttling is working' : recent > whole * 1.2 ? 'accelerating' : 'steady';
+    console.log(`\n${busiest.name}: growing ${n(recent)}/call recently vs ${n(whole)} lifetime average (${trend}).`);
+    console.log(`At the recent rate it has ~${callsLeft(busiest)} calls before the handoff line.`);
+  }
 }
 
 if (showCost) {

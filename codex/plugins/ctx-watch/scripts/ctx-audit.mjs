@@ -95,28 +95,53 @@ function readMeta(file) {
   return null;
 }
 
-/** The last token_count event holds every cumulative number we need. */
+/**
+ * The last token_count event holds every cumulative number we need, and the
+ * preceding ones give the growth rate. Collect a short trailing series of
+ * watermarks so "how much longer can this run" can be answered.
+ */
 function readCounts(file) {
   for (const bytes of [256 * 1024, 2 * 1024 * 1024, 16 * 1024 * 1024]) {
     const lines = tail(file, bytes);
+    const series = [];
+    let latest = null;
     for (let i = lines.length - 1; i >= 0; i--) {
       if (!lines[i].includes('token_count')) continue;
       try {
         const o = JSON.parse(lines[i]);
         const info = o?.payload?.info;
         if (o.type === 'event_msg' && o.payload?.type === 'token_count' && info) {
-          return {
-            current: info.last_token_usage?.input_tokens || 0,
-            burn: info.total_token_usage?.input_tokens || 0,
-            window: info.model_context_window || 0,
-            limits: o.payload.rate_limits || null,
-          };
+          const cur = info.last_token_usage?.input_tokens || 0;
+          // Walking backwards, so unshift keeps the series chronological.
+          if (cur) series.unshift(cur);
+          if (!latest) {
+            latest = {
+              current: cur,
+              burn: info.total_token_usage?.input_tokens || 0,
+              window: info.model_context_window || 0,
+              limits: o.payload.rate_limits || null,
+            };
+          }
+          if (series.length >= 40) break; // enough for a slope, keeps the read cheap
         }
       } catch {} // the first line of a tail slice is usually truncated
     }
+    if (latest) return { ...latest, series };
     if (statSync(file).size <= bytes) break;
   }
   return null;
+}
+
+/**
+ * Tokens added per request over the last quarter of the sampled series.
+ * Not a whole-session average: growth rate is not constant — early exploration
+ * reads far more than later execution, and throttling cuts it further still.
+ */
+function recentRate(series = []) {
+  if (series.length < 8) return 0;
+  const seg = series.slice(Math.floor(series.length * 0.75));
+  const span = seg.length - 1;
+  return span > 0 ? (seg[seg.length - 1] - seg[0]) / span : 0;
 }
 
 /**
@@ -187,15 +212,15 @@ const now = Date.now();
 const isActive = (r) => now - r.mtime < ACTIVE_WINDOW_MS;
 
 console.log(`\nContext watermark — Codex  (* = active within 2h, last ${days} days)`);
-console.log(`next100 = tokens the NEXT 100 requests will burn at the current watermark\n`);
-console.log(`  session        model           current    window   used%    burned  next100  state`);
+console.log(`rate = tokens added per request recently;  left = requests remaining before the handoff line\n`);
+console.log(`  session        model           current    window   used%    burned   rate   left  state`);
 for (const r of rows) {
   const l = lineOf(r);
   const lv = level(r);
   const pct = l.window ? ((r.current / l.window) * 100).toFixed(0) + '%' : '-';
   const state = lv !== 'ok' && !isActive(r) ? 'past' : lv === 'rotate' ? 'ROTATE' : lv === 'throttle' ? 'THROTTLE' : 'ok';
   console.log(
-    `${isActive(r) ? '*' : ' '} ${r.name.padEnd(14)} ${(r.model || '?').padEnd(13)} ${n(r.current).padStart(9)} ${n(l.window).padStart(9)} ${pct.padStart(6)} ${M(r.burn).padStart(9)} ${M(r.current * 100).padStart(8)}  ${state}`
+    `${isActive(r) ? '*' : ' '} ${r.name.padEnd(14)} ${(r.model || '?').padEnd(13)} ${n(r.current).padStart(9)} ${n(l.window).padStart(9)} ${pct.padStart(6)} ${M(r.burn).padStart(9)} ${(recentRate(r.series) > 0 ? n(recentRate(r.series)) : '-').padStart(6)} ${(() => { const rt = recentRate(r.series); if (rt <= 0) return '-'; const room = lineOf(r).rotate - r.current; return String(room <= 0 ? 0 : Math.round(room / rt)); })().padStart(6)}  ${state}`
   );
 }
 

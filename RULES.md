@@ -10,7 +10,13 @@ A session at 850k spends 850k tokens to answer "ls". Latency tracks the same cur
 measured, seconds-per-1k-output-tokens roughly doubled from 100k to 850k.
 **Saving tokens and going faster are the same action.**
 
-Run `ctx-audit` for the current watermark (`--all` across projects).
+Run `ctx-audit` for the current watermark (`--all` across projects). It reports a
+growth rate and how many calls remain before the handoff line.
+
+**The throttle line is not a stop line.** Crossing it and continuing to work is
+normal and expected — it only means slow the growth. Capacity is set by the rate,
+not the threshold: measured on a real session, throttling cut growth from ~2,100 to
+~816 tokens per call, which more than doubled how long that session could run.
 
 ## Four rules
 

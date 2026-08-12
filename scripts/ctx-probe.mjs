@@ -107,10 +107,18 @@ if (!ctx) process.exit(0);
  * pushes the agent into the wrong action.
  */
 let window = Number(process.env.CTX_WINDOW) || 0;
+// Growth rate, if ctx-audit has run recently. Computing a slope here would mean
+// reading more than the tail, which is the one thing this script must not do.
+let rate = 0;
+try {
+  const st = JSON.parse(readFileSync(join(homedir(), '.claude/.ctx-state'), 'utf8'));
+  window ||= Number(st.window) || 0;
+  rate = Number(st.rates?.[file.split('/').pop().slice(0, 8)]) || 0;
+} catch {}
 if (!window) {
   try {
     window = Number(readFileSync(join(homedir(), '.claude/.ctx-window'), 'utf8').trim());
-  } catch {}
+  } catch {} // older cache format
 }
 if (!window) window = 1_000_000;
 
@@ -132,11 +140,14 @@ if (level === 'ok') process.exit(0);
 
 const n = (x) => Math.round(x).toLocaleString('en-US');
 const burn100 = (ctx * 100) / 1e6;
+// Runway is the actionable number: it says how much throttling buys you, where a
+// raw watermark only says "you are high". Omitted when ctx-audit has not run.
+const runway = rate > 0 ? ` At the recent rate of ${n(rate)} tokens per call that leaves roughly ${Math.round((rotate - ctx) / rate)} calls before the handoff line — halving the rate roughly doubles that.` : '';
 
 const msg =
   level === 'throttle'
     ? `[ctx-watch] Context is at ${n(ctx)} tokens, past the throttle line of ${n(throttle)}. ` +
-      `Every tool call now re-reads that much: the next 100 calls will burn ~${burn100.toFixed(1)}M tokens. ` +
+      `Every tool call now re-reads that much: the next 100 calls will burn ~${burn100.toFixed(1)}M tokens.${runway} ` +
       `Do NOT hand off yet — slow the growth instead. Tell the user you are throttling, then keep working. ` +
       `From here: narrow any tool call expected to return more than ~5KB before running it (grep to find the line ` +
       `numbers, then read that range; pipe through head/jq; use --quiet). Stop re-reading whole files. Prefer text ` +
