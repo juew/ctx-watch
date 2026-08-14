@@ -149,12 +149,13 @@ test('ctx-probe honors the CTX_THROTTLE environment override', () => {
 
 test('ctx-probe stays silent for malformed input and missing transcripts', () => {
   const malformed = run('ctx-probe.mjs', '{');
+  const emptyHome = mkdtempSync(join(tmpdir(), 'ctx-watch-home-'));
   const missing = run('ctx-probe.mjs', {
     hook_event_name: 'PostToolUse',
     session_id: 'session-1',
     transcript_path: join(tmpdir(), 'ctx-watch-missing-rollout.jsonl'),
     cwd: tmpdir(),
-  });
+  }, { HOME: emptyHome });
 
   assert.equal(malformed.status, 0);
   assert.equal(malformed.stdout, '');
