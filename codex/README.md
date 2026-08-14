@@ -120,7 +120,8 @@ provider's own accounting beats any list-price guess.
 ## Privacy
 
 The plugin reads local rollout files and writes only debounce state under
-`PLUGIN_DATA`. It makes no network calls and sends no telemetry.
+`PLUGIN_DATA`, falling back to the OS temp directory when `PLUGIN_DATA` is missing
+or unusable. It makes no network calls and sends no telemetry.
 
 ---
 
@@ -228,5 +229,5 @@ Hook 输入的键名做了多重兜底(`rollout_path`、`transcript_path`、`ses
 
 ## 隐私
 
-plugin 读取本地 rollout 文件,只在 `PLUGIN_DATA` 下写入防抖状态。不发起网络调用,
-不发送遥测数据。
+plugin 读取本地 rollout 文件,只在 `PLUGIN_DATA` 下写入防抖状态;`PLUGIN_DATA`
+缺失或不可用时回退到操作系统临时目录。不发起网络调用,不发送遥测数据。

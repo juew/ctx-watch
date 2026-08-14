@@ -2,14 +2,16 @@
 /**
  * ctx-probe (Codex edition) — lightweight watermark probe, built for hooks.
  *
- * Wired to PostToolUse. Reads only the tail of the current rollout file and the last
+ * Wired to PostToolUse, where Codex automatically injects additional context from
+ * the hook response. Reads only the tail of the current transcript and the last
  * `token_count` event in it, which already carries the watermark AND the real
  * context window — so unlike the Claude Code edition, nothing has to be inferred or
  * cached. Typical run: a few milliseconds.
  *
- * Debounced: each level is announced once per session (state in tmpdir). Otherwise
- * every tool call appends another notice, and those notices live in the context
- * forever — the exact failure this plugin exists to prevent.
+ * Debounced: each level is announced once per session (state in PLUGIN_DATA, with
+ * OS temp fallback when missing or unusable). Otherwise every tool call appends
+ * another notice, and those notices live in the context forever — the exact failure
+ * this plugin exists to prevent.
  *
  * TWO THINGS ARE DEFENSIVE ON PURPOSE:
  *
@@ -17,11 +19,9 @@
  *      same way the shipped subagent-orchestration hook does it. If no session
  *      identifier arrives, we fall back to "newest rollout whose cwd matches".
  *
- *   2. Output shape. `hookSpecificOutput.additionalContext` is the Claude Code
- *      contract and Codex accepts the same envelope, but that Codex actually feeds
- *      additionalContext back to the model is NOT verified here. `systemMessage` is
- *      emitted alongside it so the warning is at least visible to the user if the
- *      injection path is not supported.
+ *   2. Output shape. Codex injects `hookSpecificOutput.additionalContext` back into
+ *      the model context. `systemMessage` is emitted alongside it so the warning is
+ *      also visible to the user.
  *
  * Always exits 0. It must never block a tool call.
  */
@@ -59,7 +59,7 @@ function readHookInput() {
       .map((k) => j[k])
       .find((value) => typeof value === 'string' && value);
     const cwd = typeof j.cwd === 'string' && j.cwd ? j.cwd : undefined;
-    for (const k of ['rollout_path', 'transcript_path', 'session_file', 'thread_path']) {
+    for (const k of ['transcript_path', 'rollout_path', 'session_file', 'thread_path']) {
       if (typeof j[k] === 'string' && existsSync(j[k])) return { file: j[k], sessionId, cwd };
     }
     return { sessionId, cwd };
@@ -148,20 +148,25 @@ const rotate = Number(process.env.CTX_ROTATE) || Math.round(window * ROTATE_RATI
 const ctx = counts.current;
 const level = ctx >= rotate ? 'rotate' : ctx >= throttle ? 'throttle' : 'ok';
 
-const stateRoot = process.env.PLUGIN_DATA || tmpdir();
-try {
-  mkdirSync(stateRoot, { recursive: true });
-} catch {}
 const stateKey = (input?.sessionId || basename(file)).replace(/[^a-zA-Z0-9_-]/g, '');
-const stateFile = join(stateRoot, `ctx-probe-${stateKey}.state`);
 let prev = '';
-try {
-  prev = readFileSync(stateFile, 'utf8').trim();
-} catch {}
+const stateRoots = process.env.PLUGIN_DATA ? [process.env.PLUGIN_DATA, tmpdir()] : [tmpdir()];
+for (const stateRoot of new Set(stateRoots)) {
+  try {
+    mkdirSync(stateRoot, { recursive: true });
+    const stateFile = join(stateRoot, `ctx-probe-${stateKey}.state`);
+    try {
+      prev = readFileSync(stateFile, 'utf8').trim();
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    writeFileSync(stateFile, level);
+    break;
+  } catch {
+    prev = '';
+  }
+}
 if (level === prev) process.exit(0);
-try {
-  writeFileSync(stateFile, level);
-} catch {}
 if (level === 'ok') process.exit(0);
 
 const n = (x) => Math.round(x).toLocaleString('en-US');

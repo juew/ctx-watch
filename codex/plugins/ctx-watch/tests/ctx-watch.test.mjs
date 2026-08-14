@@ -90,6 +90,44 @@ test('ctx-probe is silent below 40% and warns at throttle and handoff levels', (
   assert.match(handoff.stdout, /handoff/i);
 });
 
+test('ctx-probe prefers transcript_path over a conflicting legacy rollout_path', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'ctx-watch-probe-'));
+  const pluginData = join(fixtureRoot, 'plugin-data');
+  const legacyRollout = writeRollout(join(fixtureRoot, 'legacy'), { current: 20_000 });
+  const transcript = writeRollout(join(fixtureRoot, 'documented'), { current: 80_000 });
+  const payload = {
+    ...probePayload(transcript, fixtureRoot),
+    rollout_path: legacyRollout,
+  };
+
+  const result = run('ctx-probe.mjs', payload, { PLUGIN_DATA: pluginData });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /handoff/i);
+});
+
+test('ctx-probe debounces through tmpdir when PLUGIN_DATA is unusable', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'ctx-watch-probe-'));
+  const pluginData = join(fixtureRoot, 'plugin-data');
+  const fallbackTemp = join(fixtureRoot, 'tmp');
+  const rollout = writeRollout(fixtureRoot, { current: 80_000 });
+  const payload = {
+    ...probePayload(rollout, fixtureRoot),
+    session_id: `session-${basename(fixtureRoot)}`,
+  };
+  writeFileSync(pluginData, 'not a directory');
+  mkdirSync(fallbackTemp);
+  const env = { PLUGIN_DATA: pluginData, TMPDIR: fallbackTemp };
+
+  const first = run('ctx-probe.mjs', payload, env);
+  const second = run('ctx-probe.mjs', payload, env);
+
+  assert.equal(first.status, 0);
+  assert.match(first.stdout, /handoff/i);
+  assert.equal(second.status, 0);
+  assert.equal(second.stdout, '');
+});
+
 test('ctx-probe creates one PLUGIN_DATA state file on its first warning', () => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'ctx-watch-probe-'));
   const pluginData = join(fixtureRoot, 'plugin-data');

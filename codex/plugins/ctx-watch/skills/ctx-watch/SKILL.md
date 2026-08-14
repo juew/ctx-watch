@@ -16,7 +16,8 @@ hooks, use `/hooks` to review and trust the hooks before relying on them.
 
 `ctx-probe` is silent below 40% of the session's `model_context_window`, emits one
 throttling notice at 40%, and prepares a clean handoff at 75%. It reads the current
-watermark from `token_count` events and debounces each level through `PLUGIN_DATA`.
+watermark from `token_count` events and debounces each level through `PLUGIN_DATA`,
+falling back to the OS temp directory when `PLUGIN_DATA` is missing or unusable.
 
 ## What burns tokens
 
