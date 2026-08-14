@@ -1,14 +1,22 @@
 ---
 name: ctx-watch
 description: >
-  Check and act on the context watermark of the current Codex session. Use when the
-  user asks about context size, token burn, plan usage, whether a session should be
-  wrapped up, or 看上下文水位 / 水位 / token 消耗 / 是不是该收口了; when a session
-  feels slow; when deciding whether to keep going or start fresh. Covers running
-  ctx-audit, reading its output, and the two-tier response (throttle, then hand off).
+  Use when the user asks about context size, token burn, plan usage, whether a
+  session should be wrapped up, or 看上下文水位 / 水位 / token 消耗 / 是不是该收口了;
+  when a session feels slow; or when deciding whether to keep going or start fresh.
 ---
 
 # ctx-watch (Codex)
+
+## Automatic behavior
+
+The plugin injects the context-budget policy on new, cleared, and compacted sessions.
+Do not copy it into `AGENTS.md`. After installing the plugin, or after changing its
+hooks, use `/hooks` to review and trust the hooks before relying on them.
+
+`ctx-probe` is silent below 40% of the session's `model_context_window`, emits one
+throttling notice at 40%, and prepares a clean handoff at 75%. It reads the current
+watermark from `token_count` events and debounces each level through `PLUGIN_DATA`.
 
 ## What burns tokens
 
@@ -28,9 +36,9 @@ node <plugin>/scripts/ctx-audit.mjs --all      # every session
 node <plugin>/scripts/ctx-audit.mjs --days 7   # recency cutoff (default 14)
 ```
 
-Codex reports the real `model_context_window` per session, so **nothing is
-inferred**: the throttle line is 40% of that window and the handoff line is 75%,
-computed per session because models differ. Override with `CTX_WINDOW`,
+Codex reports the real `model_context_window` per session: the throttle line is 40%
+of that window and the handoff line is 75%, computed per session because models
+differ. Override with `CTX_WINDOW`,
 `CTX_THROTTLE`, `CTX_ROTATE`.
 
 Reading only the head and tail of each rollout keeps a multi-GB session store to a

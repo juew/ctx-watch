@@ -39,10 +39,27 @@ codex plugin marketplace add /path/to/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
+Then run `/hooks` in Codex and review and trust the `ctx-watch` hooks. Repeat this
+review after changing the plugin's hooks.
+
 **Skill only, no automation:** copy `plugins/ctx-watch/skills/ctx-watch/` to
 `~/.codex/skills/ctx-watch/` and run `ctx-audit` by hand.
 
 Requires Node.js.
+
+### Verify and uninstall
+
+```bash
+codex plugin list --json
+node <plugin>/scripts/ctx-audit.mjs --all
+```
+
+The plugin list should include `ctx-watch`; the audit should report available
+sessions and their context watermarks. To remove the plugin:
+
+```bash
+codex plugin remove ctx-watch@ctx-watch
+```
 
 ### Marketplace layout
 
@@ -64,12 +81,12 @@ Without `.agents/plugins/marketplace.json` the CLI refuses the source with
 
 ## The rules
 
-Codex reads `AGENTS.md`. Paste [`../RULES.md`](../RULES.md) into your `~/.codex/AGENTS.md`
-(or a project one) so the budget rules are resident when the agent makes decisions.
+The `SessionStart` hook automatically injects the budget policy on new, cleared, and
+compacted sessions. Do not copy [`../RULES.md`](../RULES.md) into `AGENTS.md`.
 
-The Claude Code edition injects them via a `SessionStart` hook. **This edition does
-not** — no `SessionStart` hook is used, because there is no verified example of one
-in Codex. `AGENTS.md` is the documented, reliable path.
+`ctx-probe` stays silent below 40% of the session window, throttles at 40%, and
+prepares a clean handoff at 75%. The hook reads the live watermark from
+`token_count` events; it does not infer it from prior output.
 
 ## Verified behaviour
 
@@ -99,6 +116,11 @@ finds the newest rollout whose `cwd` matches.
 
 No pricing table here. Codex reports `rate_limits.used_percent` directly — the
 provider's own accounting beats any list-price guess.
+
+## Privacy
+
+The plugin reads local rollout files and writes only debounce state under
+`PLUGIN_DATA`. It makes no network calls and sends no telemetry.
 
 ---
 
@@ -139,9 +161,25 @@ codex plugin marketplace add /path/to/ctx-watch
 codex plugin add ctx-watch@ctx-watch
 ```
 
+然后在 Codex 里运行 `/hooks`,检查并信任 `ctx-watch` 的 hooks。每次改动 plugin 的
+hooks 后,都要重新检查。
+
 **只要 skill、不要自动触发:** 把 `plugins/ctx-watch/skills/ctx-watch/` 复制到 `~/.codex/skills/ctx-watch/`,手动跑 `ctx-audit`。
 
 需要 Node.js。
+
+### 验证和卸载
+
+```bash
+codex plugin list --json
+node <plugin>/scripts/ctx-audit.mjs --all
+```
+
+插件列表应包含 `ctx-watch`;审计命令应报告可用会话及其上下文水位。卸载 plugin:
+
+```bash
+codex plugin remove ctx-watch@ctx-watch
+```
 
 ### Marketplace 目录结构
 
@@ -162,9 +200,11 @@ Codex 要求特定结构,这也是它单独占一棵子树的原因:
 
 ## 规则怎么装
 
-Codex 读 `AGENTS.md`。把 [`../RULES.md`](../RULES.md) 粘进你的 `~/.codex/AGENTS.md`(或项目级的),让预算规则在 agent 做决策时是常驻的。
+`SessionStart` hook 会在新会话、清空会话和压缩会话时自动注入预算策略。不要把
+[`../RULES.md`](../RULES.md) 复制到 `AGENTS.md`。
 
-Claude Code 版是用 `SessionStart` hook 注入的。**这一版没有这么做**——因为在 Codex 里找不到 `SessionStart` hook 的已验证先例,`AGENTS.md` 才是有文档、可靠的路径。
+`ctx-probe` 在会话窗口低于 40% 时保持静默,到 40% 时提示节流,到 75% 时准备干净的
+交接。hook 从 `token_count` 事件读取实时水位,不会从先前输出推断。
 
 ## 已验证的行为
 
@@ -185,3 +225,8 @@ Hook 输入的键名做了多重兜底(`rollout_path`、`transcript_path`、`ses
 | `CTX_ROTATE` | 覆盖收口线(tokens) |
 
 这一版没有价格表。Codex 直接给 `rate_limits.used_percent`——服务方自己的账,比任何标价推算都准。
+
+## 隐私
+
+plugin 读取本地 rollout 文件,只在 `PLUGIN_DATA` 下写入防抖状态。不发起网络调用,
+不发送遥测数据。
