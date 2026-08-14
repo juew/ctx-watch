@@ -1,12 +1,28 @@
 {
+  "description": "Inject ctx-watch policy and report context watermark thresholds.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/ctx-init.mjs\" 2>/dev/null || true",
+            "timeout": 3,
+            "additionalContextLimit": 600
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/ctx-probe.mjs\" 2>/dev/null || true"
+            "command": "node \"${PLUGIN_ROOT}/scripts/ctx-probe.mjs\" 2>/dev/null || true",
+            "timeout": 3,
+            "additionalContextLimit": 700
           }
         ]
       }
