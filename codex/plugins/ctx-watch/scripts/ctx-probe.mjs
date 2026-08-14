@@ -25,8 +25,8 @@
  *
  * Always exits 0. It must never block a tool call.
  */
-import { readdirSync, existsSync, statSync, openSync, readSync, closeSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, existsSync, statSync, openSync, readSync, closeSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
 const THROTTLE_RATIO = 0.4;
@@ -55,20 +55,21 @@ function readHookInput() {
     if (!raw.trim()) return null;
     const j = JSON.parse(raw);
     hookMode = true;
+    const sessionId = ['session_id', 'thread_id', 'conversation_id', 'id']
+      .map((k) => j[k])
+      .find((value) => typeof value === 'string' && value);
+    const cwd = typeof j.cwd === 'string' && j.cwd ? j.cwd : undefined;
     for (const k of ['rollout_path', 'transcript_path', 'session_file', 'thread_path']) {
-      if (typeof j[k] === 'string' && existsSync(j[k])) return { file: j[k] };
+      if (typeof j[k] === 'string' && existsSync(j[k])) return { file: j[k], sessionId, cwd };
     }
-    for (const k of ['session_id', 'thread_id', 'conversation_id', 'id']) {
-      if (typeof j[k] === 'string' && j[k]) return { id: j[k] };
-    }
-    return {};
+    return { sessionId, cwd };
   } catch {
     return null;
   }
 }
 
 /** Newest rollout, optionally filtered by session id or by matching cwd. */
-function findRollout({ id } = {}) {
+function findRollout({ sessionId: id, cwd } = {}) {
   if (!existsSync(SESSIONS)) return null;
   const files = [];
   const walk = (dir) => {
@@ -87,7 +88,7 @@ function findRollout({ id } = {}) {
   walk(SESSIONS);
   files.sort((a, b) => b.m - a.m);
 
-  const cwd = process.cwd();
+  const sessionCwd = cwd || process.cwd();
   for (const { p } of files.slice(0, 60)) {
     for (const line of slice(p, 64 * 1024, false)) {
       if (!line.includes('session_meta')) continue;
@@ -96,7 +97,7 @@ function findRollout({ id } = {}) {
         if (o.type !== 'session_meta') continue;
         if (id) {
           if (o.payload?.id === id) return p;
-        } else if (o.payload?.cwd === cwd) {
+        } else if (o.payload?.cwd === sessionCwd) {
           return p; // newest first, so the first cwd match is the live one
         }
       } catch {}
@@ -147,7 +148,12 @@ const rotate = Number(process.env.CTX_ROTATE) || Math.round(window * ROTATE_RATI
 const ctx = counts.current;
 const level = ctx >= rotate ? 'rotate' : ctx >= throttle ? 'throttle' : 'ok';
 
-const stateFile = join(tmpdir(), 'ctx-probe-' + file.split('/').pop().slice(-20).replace(/\W/g, '') + '.state');
+const stateRoot = process.env.PLUGIN_DATA || tmpdir();
+try {
+  mkdirSync(stateRoot, { recursive: true });
+} catch {}
+const stateKey = (input?.sessionId || basename(file)).replace(/[^a-zA-Z0-9_-]/g, '');
+const stateFile = join(stateRoot, `ctx-probe-${stateKey}.state`);
 let prev = '';
 try {
   prev = readFileSync(stateFile, 'utf8').trim();
